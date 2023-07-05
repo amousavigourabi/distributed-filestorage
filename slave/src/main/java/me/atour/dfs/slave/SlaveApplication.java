@@ -23,7 +23,7 @@ public class SlaveApplication {
    *             sixth is the port for slave registration at the master,
    *             seventh is the memory available in bytes
    */
-  public static void main(@NonNull String[] args) throws SocketException, UnknownHostException {
+  public static void main(@NonNull String... args) throws SocketException, UnknownHostException {
     if (args == null || args.length < 7) {
       throw new IllegalArgumentException();
     }

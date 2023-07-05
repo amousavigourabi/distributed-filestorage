@@ -60,10 +60,10 @@ public class SlaveMasterService {
    * @return the slave id
    */
   public String register(int registrationPort, int clientPort, long memory) {
-    try (DatagramSocket registrationSocket = new DatagramSocket(registrationPort)) {
-      String message = memory + "\\" + clientPort;
+    try (DatagramSocket registrationSocket = new DatagramSocket(clientPort)) {
+      String message = Long.toString(memory);
       byte[] buf = message.getBytes();
-      DatagramPacket packet = new DatagramPacket(buf, buf.length, master, toMasterPort);
+      DatagramPacket packet = new DatagramPacket(buf, buf.length, master, registrationPort);
       registrationSocket.send(packet);
       byte[] replyBuf = new byte[512];
       DatagramPacket reply = new DatagramPacket(replyBuf, replyBuf.length);
@@ -94,7 +94,7 @@ public class SlaveMasterService {
    * Listens for orchestration from the master
    */
   public void listenForOrchestration() {
-    byte[] buf = new byte[512];
+    byte[] buf = new byte[65536];
     while (true) {
       try {
         DatagramPacket packet = new DatagramPacket(buf, buf.length);
