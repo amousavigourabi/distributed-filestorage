@@ -33,17 +33,16 @@ public class SlaveMasterService {
    * @param slavePort the port the slave uses for master communication
    * @param masterPort the port the master uses for slave communication
    * @param clientPort the port the slave uses for client communication
-   * @param memory the amount of memory available on this slave
    * @param reservations {@link Map} of the resources reserved/available for a given client
    * @throws SocketException when something goes wrong with the {@link DatagramSocket}s
    */
   public SlaveMasterService(InetAddress masterAddress, int slavePort, int masterPort, int clientPort,
-                            long memory, Map<InetAddress, Long> reservations) throws SocketException {
+                            Map<InetAddress, Long> reservations) throws SocketException {
     master = masterAddress;
     toMasterPort = masterPort;
     clients = reservations;
     heartbeatSocket = new DatagramSocket(slavePort);
-    register(masterPort, clientPort, memory);
+    register(masterPort, clientPort);
     scheduledExecutorService.scheduleAtFixedRate(this::heartbeat, 0, 5, TimeUnit.SECONDS);
     thread = new Thread(this::listenForOrchestration);
     thread.start();
@@ -54,16 +53,15 @@ public class SlaveMasterService {
    *
    * @param registrationPort the port the master uses for registration requests
    * @param clientPort the port the slave uses for client communication
-   * @param memory the memory available, in bytes
    */
-  public void register(int registrationPort, int clientPort, long memory) {
+  public void register(int registrationPort, int clientPort) {
     try (DatagramSocket registrationSocket = new DatagramSocket(clientPort)) {
-      String message = "r" + memory;
+      String message = "r" + clientPort;
       byte[] buf = message.getBytes();
       DatagramPacket packet = new DatagramPacket(buf, buf.length, master, registrationPort);
       registrationSocket.send(packet);
     } catch (IOException e) {
-      log.error("Could not register slave with {} bytes of memory because of {}.", memory, e.getMessage());
+      log.error("Could not register slave because of {}.", e.getMessage());
       throw new CouldNotRegisterSlaveException();
     }
   }

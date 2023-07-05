@@ -21,18 +21,16 @@ public class SlaveApplication {
    *             second is the master port for communicating with the slaves,
    *             third is the slave port for communicating with the master,
    *             fourth is the port for communicating with clients to submit data,
-   *             fifth is the port for data fetches,
-   *             sixth is the memory available in bytes
+   *             fifth is the port for data fetches
    * @throws SocketException when sockets cannot be opened or used
    * @throws UnknownHostException when a hostname cannot be resolved
    */
   public static void main(@NonNull String... args) throws SocketException, UnknownHostException {
-    if (args == null || args.length < 6) {
+    if (args == null || args.length < 5) {
       throw new IllegalArgumentException();
     }
     SlaveServer server = new SlaveServer(InetAddress.getByName(args[0]), Integer.parseInt(args[1]),
-        Integer.parseInt(args[2]), Integer.parseInt(args[3]), Integer.parseInt(args[4]),
-        Long.parseLong(args[5]));
+        Integer.parseInt(args[2]), Integer.parseInt(args[3]), Integer.parseInt(args[4]));
     while (true) {
       try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
         String command = reader.readLine();

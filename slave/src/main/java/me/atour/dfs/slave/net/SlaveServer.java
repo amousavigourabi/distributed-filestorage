@@ -23,14 +23,13 @@ public class SlaveServer {
    * @param fromMasterPort port used to talk to the master
    * @param fromClientPort port used to talk to clients submitting data
    * @param fetchPort port used for data fetch requests
-   * @param memory the amount of memory available on the machine
    * @throws SocketException when sockets cannot be opened
    */
   public SlaveServer(InetAddress masterAddress, int toMasterPort, int fromMasterPort, int fromClientPort,
-                     int fetchPort, long memory) throws SocketException {
+                     int fetchPort) throws SocketException {
     Map<InetAddress, Long> reservations = new ConcurrentHashMap<>();
     masterService = new SlaveMasterService(masterAddress, fromMasterPort, toMasterPort, fromClientPort,
-        memory, reservations);
+        reservations);
     clientService = new SlaveClientService(fromClientPort, fetchPort, reservations);
   }
 
