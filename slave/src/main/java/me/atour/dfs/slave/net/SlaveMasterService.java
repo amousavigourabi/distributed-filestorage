@@ -33,42 +33,35 @@ public class SlaveMasterService {
    * @param slavePort the port the slave uses for master communication
    * @param masterPort the port the master uses for slave communication
    * @param clientPort the port the slave uses for client communication
-   * @param registrationPort the port the master uses for slave registration
    * @param memory the amount of memory available on this slave
    * @param reservations {@link Map} of the resources reserved/available for a given client
    * @throws SocketException when something goes wrong with the {@link DatagramSocket}s
    */
   public SlaveMasterService(InetAddress masterAddress, int slavePort, int masterPort, int clientPort,
-                            int registrationPort, long memory,
-                            Map<InetAddress, Long> reservations) throws SocketException {
+                            long memory, Map<InetAddress, Long> reservations) throws SocketException {
     master = masterAddress;
     toMasterPort = masterPort;
     clients = reservations;
     heartbeatSocket = new DatagramSocket(slavePort);
-    String slaveId = register(registrationPort, clientPort, memory);
-    scheduledExecutorService.scheduleAtFixedRate(() -> heartbeat(slaveId), 0, 5, TimeUnit.SECONDS);
+    register(masterPort, clientPort, memory);
+    scheduledExecutorService.scheduleAtFixedRate(this::heartbeat, 0, 5, TimeUnit.SECONDS);
     thread = new Thread(this::listenForOrchestration);
     thread.start();
   }
 
   /**
-   * Register the slave node
+   * Register the slave node.
    *
    * @param registrationPort the port the master uses for registration requests
    * @param clientPort the port the slave uses for client communication
    * @param memory the memory available, in bytes
-   * @return the slave id
    */
-  public String register(int registrationPort, int clientPort, long memory) {
+  public void register(int registrationPort, int clientPort, long memory) {
     try (DatagramSocket registrationSocket = new DatagramSocket(clientPort)) {
-      String message = Long.toString(memory);
+      String message = "r" + memory;
       byte[] buf = message.getBytes();
       DatagramPacket packet = new DatagramPacket(buf, buf.length, master, registrationPort);
       registrationSocket.send(packet);
-      byte[] replyBuf = new byte[512];
-      DatagramPacket reply = new DatagramPacket(replyBuf, replyBuf.length);
-      registrationSocket.receive(reply);
-      return new String(reply.getData(), reply.getOffset(), reply.getLength());
     } catch (IOException e) {
       log.error("Could not register slave with {} bytes of memory because of {}.", memory, e.getMessage());
       throw new CouldNotRegisterSlaveException();
@@ -76,13 +69,11 @@ public class SlaveMasterService {
   }
 
   /**
-   * Sends a heartbeat to the master
-   *
-   * @param slaveId the slave id
+   * Sends a heartbeat to the master.
    */
-  public void heartbeat(String slaveId) {
+  public void heartbeat() {
     try {
-      byte[] buf = slaveId.getBytes();
+      byte[] buf = {'h'};
       DatagramPacket packet = new DatagramPacket(buf, buf.length, master, toMasterPort);
       heartbeatSocket.send(packet);
     } catch (IOException e) {
@@ -91,7 +82,7 @@ public class SlaveMasterService {
   }
 
   /**
-   * Listens for orchestration from the master
+   * Listens for orchestration from the master.
    */
   public void listenForOrchestration() {
     byte[] buf = new byte[65536];

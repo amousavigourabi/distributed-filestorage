@@ -31,7 +31,7 @@ public class SlaveApplication {
       throw new IllegalArgumentException();
     }
     SlaveServer server = new SlaveServer(InetAddress.getByName(args[0]), Integer.parseInt(args[1]),
-        Integer.parseInt(args[2]), Integer.parseInt(args[3]), Integer.parseInt(args[4]), Integer.parseInt(args[1]),
+        Integer.parseInt(args[2]), Integer.parseInt(args[3]), Integer.parseInt(args[4]),
         Long.parseLong(args[5]));
     while (true) {
       try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
