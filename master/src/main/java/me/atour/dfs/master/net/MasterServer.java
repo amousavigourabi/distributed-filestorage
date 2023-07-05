@@ -1,8 +1,8 @@
 package me.atour.dfs.master.net;
 
 import java.net.SocketException;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import me.atour.dfs.master.fs.DistributedLocation;
 
 /**
@@ -18,11 +18,10 @@ public class MasterServer {
    *
    * @param clientPort port to communicate with clients
    * @param slavePort port to communicate with slaves
-   * @param heartbeatPort port to receive slave heartbeats
    */
-  public MasterServer(int clientPort, int slavePort, int heartbeatPort) throws SocketException {
-    Map<String, DistributedLocation> locations = new ConcurrentHashMap<>();
-    masterSlaveService = new MasterSlaveService(slavePort, heartbeatPort, locations);
+  public MasterServer(int clientPort, int slavePort) throws SocketException {
+    ConcurrentMap<String, DistributedLocation> locations = new ConcurrentHashMap<>();
+    masterSlaveService = new MasterSlaveService(slavePort, locations);
     masterClientService = new MasterClientService(clientPort, masterSlaveService, locations);
   }
 

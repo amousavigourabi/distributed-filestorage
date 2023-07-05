@@ -22,8 +22,7 @@ public class MasterApplication {
     if (args == null || args.length < 3) {
       throw new IllegalArgumentException();
     }
-    MasterServer server = new MasterServer(Integer.parseInt(args[0]), Integer.parseInt(args[1]),
-        Integer.parseInt(args[2]));
+    MasterServer server = new MasterServer(Integer.parseInt(args[0]), Integer.parseInt(args[1]));
     while (true) {
       try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
         String command = reader.readLine();

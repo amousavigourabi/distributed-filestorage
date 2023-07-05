@@ -13,6 +13,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import lombok.extern.slf4j.Slf4j;
 import me.atour.dfs.master.fs.DistributedLocation;
 import me.atour.dfs.master.fs.PathAlreadyExistsException;
@@ -23,32 +24,27 @@ import me.atour.dfs.master.fs.PathAlreadyExistsException;
 @Slf4j
 public class MasterSlaveService {
 
-  private final DatagramSocket registrationSocket;
-  private final DatagramSocket heartbeatSocket;
+  private final DatagramSocket slaveSocket;
   private final Map<String, DistributedLocation> fileLocations;
   private final Set<InetSocketAddress> slaves;
   private final Map<InetSocketAddress, Date> heartbeats;
 
   private final Thread registrationThread;
-  private final Thread heartbeatThread;
 
   /**
    * Constructs the master-slave service.
    * Used for communicating with the slave from the master.
    *
-   * @param registrationPort the port on the master the slaves register at
-   * @param heartbeatPort the port on the master the slaves send heartbeats to
+   * @param slaveFacingPort the port on the master with which the slaves communicate
+   * @param locations a {@link ConcurrentMap} maintaining the files that are stored in the system
    */
-  public MasterSlaveService(int registrationPort, int heartbeatPort, Map<String, DistributedLocation> locations) throws SocketException {
+  public MasterSlaveService(int slaveFacingPort, ConcurrentMap<String, DistributedLocation> locations) throws SocketException {
     slaves = new HashSet<>();
     heartbeats = new ConcurrentHashMap<>();
     fileLocations = locations;
-    registrationSocket = new DatagramSocket(registrationPort);
-    heartbeatSocket = new DatagramSocket(heartbeatPort);
+    slaveSocket = new DatagramSocket(slaveFacingPort);
     registrationThread = new Thread(this::registerSlaveListener);
-    heartbeatThread = new Thread(this::heartbeatListener);
     registrationThread.start();
-    heartbeatThread.start();
   }
 
   /**
@@ -59,26 +55,13 @@ public class MasterSlaveService {
     while (true) {
       try {
         DatagramPacket packet = new DatagramPacket(buf, buf.length);
-        registrationSocket.receive(packet);
+        slaveSocket.receive(packet);
         InetSocketAddress sender = (InetSocketAddress) packet.getSocketAddress();
-        slaves.add(sender);
-      } catch (IOException e) {
-        log.error("Could not deal with a slave registration request because {}.", e.getMessage());
-      }
-    }
-  }
-
-  /**
-   * Listens for heartbeats.
-   */
-  public void heartbeatListener() {
-    byte[] buf = new byte[65536];
-    while (true) {
-      try {
-        DatagramPacket packet = new DatagramPacket(buf, buf.length);
-        heartbeatSocket.receive(packet);
-        InetSocketAddress sender = (InetSocketAddress) packet.getSocketAddress();
-        heartbeats.put(sender, new Date());
+        if (buf[0] == 'r') {
+          slaves.add(sender); // todo register memory size
+        } else if (buf[0] == 'h') {
+          heartbeats.put(sender, new Date());
+        }
       } catch (IOException e) {
         log.error("Could not deal with a slave registration request because {}.", e.getMessage());
       }
@@ -113,8 +96,6 @@ public class MasterSlaveService {
    */
   public void shutdown() {
     registrationThread.interrupt();
-    heartbeatThread.interrupt();
-    registrationSocket.close();
-    heartbeatSocket.close();
+    slaveSocket.close();
   }
 }
