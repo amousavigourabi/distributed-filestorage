@@ -27,7 +27,7 @@ public class SlaveApplication {
    * @throws UnknownHostException when a hostname cannot be resolved
    */
   public static void main(@NonNull String... args) throws SocketException, UnknownHostException {
-    if (args == null || args.length < 7) {
+    if (args == null || args.length < 6) {
       throw new IllegalArgumentException();
     }
     SlaveServer server = new SlaveServer(InetAddress.getByName(args[0]), Integer.parseInt(args[1]),

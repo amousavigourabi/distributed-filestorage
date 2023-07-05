@@ -19,7 +19,7 @@ public class MasterApplication {
    * @throws SocketException when sockets cannot be opened or used
    */
   public static void main(String... args) throws SocketException {
-    if (args == null || args.length < 3) {
+    if (args == null || args.length < 2) {
       throw new IllegalArgumentException();
     }
     MasterServer server = new MasterServer(Integer.parseInt(args[0]), Integer.parseInt(args[1]));
