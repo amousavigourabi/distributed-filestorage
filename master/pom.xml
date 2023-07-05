@@ -12,7 +12,6 @@
   </parent>
 
   <artifactId>dfs-master</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
 
   <name>Distributed File System Master Node</name>
   <description>Master node as part of the distributed file system</description>
