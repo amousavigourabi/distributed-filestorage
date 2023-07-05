@@ -58,6 +58,8 @@ public class MasterSlaveService {
         slaveSocket.receive(packet);
         InetSocketAddress sender = (InetSocketAddress) packet.getSocketAddress();
         if (buf[0] == 'r') {
+          int port = Integer.parseInt(new String(buf, 1, buf.length - 1));
+          packet.setPort(port);
           slaves.add(sender); // todo register memory size
         } else if (buf[0] == 'h') {
           heartbeats.put(sender, new Date());

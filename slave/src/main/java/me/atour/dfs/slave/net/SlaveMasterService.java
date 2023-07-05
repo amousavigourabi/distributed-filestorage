@@ -18,11 +18,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SlaveMasterService {
 
+  private final ScheduledExecutorService heartbeatExecutorService = Executors.newSingleThreadScheduledExecutor();
+
   private final InetAddress master;
   private final int toMasterPort;
-  private final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
   private final DatagramSocket heartbeatSocket;
-  private final Thread thread;
+  private final Thread orchestrationThread;
   private final Map<InetAddress, Long> clients;
 
   /**
@@ -43,9 +44,9 @@ public class SlaveMasterService {
     clients = reservations;
     heartbeatSocket = new DatagramSocket(slavePort);
     register(masterPort, clientPort);
-    scheduledExecutorService.scheduleAtFixedRate(this::heartbeat, 0, 5, TimeUnit.SECONDS);
-    thread = new Thread(this::listenForOrchestration);
-    thread.start();
+    heartbeatExecutorService.scheduleAtFixedRate(this::heartbeat, 0, 5, TimeUnit.SECONDS);
+    orchestrationThread = new Thread(this::listenForOrchestration);
+    orchestrationThread.start();
   }
 
   /**
@@ -55,11 +56,11 @@ public class SlaveMasterService {
    * @param clientPort the port the slave uses for client communication
    */
   public void register(int registrationPort, int clientPort) {
-    try (DatagramSocket registrationSocket = new DatagramSocket(clientPort)) {
+    try {
       String message = "r" + clientPort;
       byte[] buf = message.getBytes();
       DatagramPacket packet = new DatagramPacket(buf, buf.length, master, registrationPort);
-      registrationSocket.send(packet);
+      heartbeatSocket.send(packet);
     } catch (IOException e) {
       log.error("Could not register slave because of {}.", e.getMessage());
       throw new CouldNotRegisterSlaveException();
@@ -111,8 +112,8 @@ public class SlaveMasterService {
    * Shuts down the slave-master communications
    */
   public void shutdown() {
-    thread.interrupt();
-    scheduledExecutorService.shutdownNow();
+    orchestrationThread.interrupt();
+    heartbeatExecutorService.shutdownNow();
     heartbeatSocket.close();
   }
 }
