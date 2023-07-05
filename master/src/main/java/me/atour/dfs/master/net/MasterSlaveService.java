@@ -6,13 +6,16 @@ import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import lombok.extern.slf4j.Slf4j;
 import me.atour.dfs.master.fs.DistributedLocation;
 import me.atour.dfs.master.fs.PathAlreadyExistsException;
@@ -26,9 +29,13 @@ public class MasterSlaveService {
   private final DatagramSocket slaveSocket;
   private final Map<String, DistributedLocation> fileLocations;
   private final List<InetSocketAddress> slaves;
-  private final Map<InetSocketAddress, Date> heartbeats;
+  private final Set<InetSocketAddress> recentHeartbeats;
 
   private final Thread registrationThread;
+
+  private final ThreadLocalRandom generator;
+
+  private final ScheduledExecutorService slaveCleanupExecutorService = Executors.newSingleThreadScheduledExecutor();
 
   /**
    * Constructs the master-slave service.
@@ -39,11 +46,22 @@ public class MasterSlaveService {
    */
   public MasterSlaveService(int slaveFacingPort, ConcurrentMap<String, DistributedLocation> locations) throws SocketException {
     slaves = new ArrayList<>();
-    heartbeats = new ConcurrentHashMap<>();
+    generator = ThreadLocalRandom.current();
+    recentHeartbeats = new HashSet<>();
     fileLocations = locations;
     slaveSocket = new DatagramSocket(slaveFacingPort);
     registrationThread = new Thread(this::registerSlaveListener);
     registrationThread.start();
+    slaveCleanupExecutorService.scheduleAtFixedRate(this::cleanupSlaves, 5, 5, TimeUnit.MINUTES);
+  }
+
+  /**
+   * Cleans up the slave registrations.
+   * Removes registrations for which there have been no recent heartbeats.
+   */
+  public void cleanupSlaves() {
+    slaves.retainAll(recentHeartbeats);
+    recentHeartbeats.clear();
   }
 
   /**
@@ -56,14 +74,15 @@ public class MasterSlaveService {
         DatagramPacket packet = new DatagramPacket(buf, buf.length);
         slaveSocket.receive(packet);
         InetSocketAddress sender = (InetSocketAddress) packet.getSocketAddress();
+        int port = Integer.parseInt(new String(buf, 1, buf.length - 1));
+        InetSocketAddress slaveRef = new InetSocketAddress(sender.getAddress(), port);
         if (buf[0] == 'r') {
-          int port = Integer.parseInt(new String(buf, 1, buf.length - 1));
-          InetSocketAddress slaveRef = new InetSocketAddress(sender.getAddress(), port);
+          recentHeartbeats.add(slaveRef);
           slaves.add(slaveRef); // todo register memory size
           DatagramPacket response = new DatagramPacket(buf, buf.length, sender);
           slaveSocket.send(response);
         } else if (buf[0] == 'h') {
-          heartbeats.put(sender, new Date());
+          recentHeartbeats.add(slaveRef);
         } else {
           log.info("Could not recognize message {}.", new String(buf));
         }
@@ -83,7 +102,6 @@ public class MasterSlaveService {
     if (fileLocations.containsKey(path)) {
       throw new PathAlreadyExistsException();
     }
-    ThreadLocalRandom generator = ThreadLocalRandom.current();
     int randomIndex = generator.nextInt();
     InetSocketAddress address = slaves.get(randomIndex);
     String tag = UUID.randomUUID().toString();
