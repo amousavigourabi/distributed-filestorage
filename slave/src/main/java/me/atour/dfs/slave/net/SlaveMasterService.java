@@ -43,7 +43,7 @@ public class SlaveMasterService {
     toMasterPort = masterPort;
     clients = reservations;
     heartbeatSocket = new DatagramSocket(slavePort);
-    register(masterPort, clientPort);
+    register(clientPort);
     heartbeatExecutorService.scheduleAtFixedRate(this::heartbeat, 0, 5, TimeUnit.SECONDS);
     orchestrationThread = new Thread(this::listenForOrchestration);
     orchestrationThread.start();
@@ -52,15 +52,21 @@ public class SlaveMasterService {
   /**
    * Register the slave node.
    *
-   * @param registrationPort the port the master uses for registration requests
    * @param clientPort the port the slave uses for client communication
    */
-  public void register(int registrationPort, int clientPort) {
+  public void register(int clientPort) {
     try {
       String message = "r" + clientPort;
       byte[] buf = message.getBytes();
-      DatagramPacket packet = new DatagramPacket(buf, buf.length, master, registrationPort);
+      DatagramPacket packet = new DatagramPacket(buf, buf.length, master, toMasterPort);
       heartbeatSocket.send(packet);
+      DatagramPacket masterReply = new DatagramPacket(buf, buf.length);
+      heartbeatSocket.receive(masterReply);
+      String masterMessage = new String(masterReply.getData());
+      if (!masterMessage.equals(message)) {
+        log.error("Could not register at the master at {}:{}, the reply {} did not line up with the message {}.",
+            master, toMasterPort, masterMessage, message);
+      }
     } catch (IOException e) {
       log.error("Could not register slave because of {}.", e.getMessage());
       throw new CouldNotRegisterSlaveException();
