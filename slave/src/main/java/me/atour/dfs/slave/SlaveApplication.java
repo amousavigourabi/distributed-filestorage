@@ -7,12 +7,14 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 import me.atour.dfs.slave.net.SlaveServer;
 
+@Slf4j
 public class SlaveApplication {
 
   /**
-   * Starts the application
+   * Starts the application.
    *
    * @param args the CLI arguments, cannot be null
    *             first is the master address,
@@ -22,6 +24,8 @@ public class SlaveApplication {
    *             fifth is the port for data fetches,
    *             sixth is the port for slave registration at the master,
    *             seventh is the memory available in bytes
+   * @throws SocketException when sockets cannot be opened or used
+   * @throws UnknownHostException when a hostname cannot be resolved
    */
   public static void main(@NonNull String... args) throws SocketException, UnknownHostException {
     if (args == null || args.length < 7) {
@@ -38,7 +42,7 @@ public class SlaveApplication {
           break;
         }
       } catch (IOException e) {
-        System.out.println("womp womp");
+        log.info("Cannot read from the command line because {}.", e.getMessage());
       }
     }
   }
