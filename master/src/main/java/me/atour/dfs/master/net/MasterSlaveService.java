@@ -5,15 +5,14 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
+import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
-import java.util.Random;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ThreadLocalRandom;
 import lombok.extern.slf4j.Slf4j;
 import me.atour.dfs.master.fs.DistributedLocation;
 import me.atour.dfs.master.fs.PathAlreadyExistsException;
@@ -26,7 +25,7 @@ public class MasterSlaveService {
 
   private final DatagramSocket slaveSocket;
   private final Map<String, DistributedLocation> fileLocations;
-  private final Set<InetSocketAddress> slaves;
+  private final List<InetSocketAddress> slaves;
   private final Map<InetSocketAddress, Date> heartbeats;
 
   private final Thread registrationThread;
@@ -39,7 +38,7 @@ public class MasterSlaveService {
    * @param locations a {@link ConcurrentMap} maintaining the files that are stored in the system
    */
   public MasterSlaveService(int slaveFacingPort, ConcurrentMap<String, DistributedLocation> locations) throws SocketException {
-    slaves = new HashSet<>();
+    slaves = new ArrayList<>();
     heartbeats = new ConcurrentHashMap<>();
     fileLocations = locations;
     slaveSocket = new DatagramSocket(slaveFacingPort);
@@ -65,6 +64,8 @@ public class MasterSlaveService {
           slaveSocket.send(response);
         } else if (buf[0] == 'h') {
           heartbeats.put(sender, new Date());
+        } else {
+          log.info("Could not recognize message {}.", new String(buf));
         }
       } catch (IOException e) {
         log.error("Could not deal with a slave registration request because {}.", e.getMessage());
@@ -82,13 +83,9 @@ public class MasterSlaveService {
     if (fileLocations.containsKey(path)) {
       throw new PathAlreadyExistsException();
     }
-    Set<InetSocketAddress> tempSlaves = new HashSet<>(slaves);
-    int randomIndex = new Random().nextInt(tempSlaves.size());
-    Iterator<InetSocketAddress> iterator = tempSlaves.iterator();
-    for (int i = 0; i < randomIndex; i++) {
-      iterator.next();
-    }
-    InetSocketAddress address = iterator.next();
+    ThreadLocalRandom generator = ThreadLocalRandom.current();
+    int randomIndex = generator.nextInt();
+    InetSocketAddress address = slaves.get(randomIndex);
     String tag = UUID.randomUUID().toString();
     DistributedLocation location = new DistributedLocation(address, tag);
     fileLocations.put(path, location);
