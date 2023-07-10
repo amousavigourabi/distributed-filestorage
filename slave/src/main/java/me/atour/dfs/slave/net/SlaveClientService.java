@@ -20,9 +20,7 @@ import me.atour.dfs.slave.fs.WriteService;
 public class SlaveClientService {
 
   private final DatagramSocket clientSocket;
-  private final DatagramSocket fetchSocket;
   private final Thread thread;
-  private final Thread fetchThread;
   private final Map<InetAddress, Long> clients;
   private final WriteService writeService;
   private final ReadService readService;
@@ -31,21 +29,17 @@ public class SlaveClientService {
    * Constructs service responsible for slave-client communication.
    *
    * @param clientPort port for the client to submit files
-   * @param fetchPort port for the client to fetch files
    * @param reservations bookkeeping of the reservations for the clients
    * @throws SocketException when sockets cannot be opened
    */
-  public SlaveClientService(int clientPort, int fetchPort, Map<InetAddress, Long> reservations) throws SocketException {
+  public SlaveClientService(int clientPort, Map<InetAddress, Long> reservations) throws SocketException {
     Map<String, FileLocation> tagLocations = new ConcurrentHashMap<>();
     writeService = new WriteService(tagLocations);
     readService = new ReadService(tagLocations);
     clientSocket = new DatagramSocket(clientPort);
-    fetchSocket = new DatagramSocket(fetchPort);
     clients = reservations;
     thread = new Thread(this::listenForClients);
     thread.start();
-    fetchThread = new Thread(this::fetchForClients);
-    fetchThread.start();
   }
 
   /**
@@ -57,39 +51,31 @@ public class SlaveClientService {
       try {
         DatagramPacket packet = new DatagramPacket(buf, buf.length);
         clientSocket.receive(packet);
-        InetAddress clientAddress = ((InetSocketAddress) packet.getSocketAddress()).getAddress();
-        if (clients.containsKey(clientAddress)) {
-          synchronized (clients) {
-            long newValue = clients.get(clientAddress) - 1;
-            clients.put(clientAddress, newValue);
+        char[] data = new String(packet.getData(), packet.getOffset(), packet.getLength()).toCharArray();
+        InetSocketAddress clientSocketAddress = (InetSocketAddress) packet.getSocketAddress();
+        InetAddress clientAddress = clientSocketAddress.getAddress();
+        String message = new String(data, 1, data.length - 1);
+        if (data[0] == 'f') {
+          byte[] contents = readService.read(message);
+          DatagramPacket response = new DatagramPacket(contents, contents.length, clientAddress,
+              clientSocketAddress.getPort());
+          clientSocket.send(response);
+        } else if (data[0] == 's') {
+          if (clients.containsKey(clientAddress) && clients.get(clientAddress) > 0) {
+            synchronized (clients) {
+              long newValue = clients.get(clientAddress) - 1;
+              clients.put(clientAddress, newValue);
+            }
+          } else {
+            log.info("Client {} tried to submit without reservation.", clientAddress);
           }
+          String[] splits = message.split("\\\\");
+          String handle = splits[0];
+          String body = splits[1];
+          writeService.add(handle, body);
+        } else {
+          log.info("Client {} tried to communicate using prefix {}.", clientAddress, data[0]);
         }
-        String message = new String(packet.getData(), packet.getOffset(), packet.getLength());
-        String[] splits = message.split("\\\\");
-        String handle = splits[0];
-        String body = splits[1];
-        writeService.add(handle, body);
-      } catch (IOException e) {
-        log.error("Could not receive communications from the master because of {}.", e.getMessage());
-      }
-    }
-  }
-
-  /**
-   * Listens for clients fetching files.
-   */
-  public void fetchForClients() {
-    byte[] buf = new byte[65536];
-    while (true) {
-      try {
-        DatagramPacket packet = new DatagramPacket(buf, buf.length);
-        fetchSocket.receive(packet);
-        String handle = new String(packet.getData(), packet.getOffset(), packet.getLength());
-        byte[] contents = readService.read(handle);
-        InetSocketAddress clientAddress = (InetSocketAddress) packet.getSocketAddress();
-        DatagramPacket response = new DatagramPacket(contents, contents.length, clientAddress.getAddress(),
-            clientAddress.getPort());
-        fetchSocket.send(response);
       } catch (IOException e) {
         log.error("Could not receive communications from the master because of {}.", e.getMessage());
       }
@@ -103,7 +89,6 @@ public class SlaveClientService {
     // todo: persist the tag map
     writeService.flush();
     thread.interrupt();
-    fetchThread.interrupt();
     clientSocket.close();
   }
 }
