@@ -10,7 +10,7 @@
   <packaging>pom</packaging>
 
   <name>Distributed File System</name>
-  <description>A distributed file system, implemented in Java.</description>
+  <description>Distributed file storage, implemented in Java.</description>
 
   <modules>
     <module>master</module>
@@ -26,7 +26,7 @@
 
   <properties>
     <maven.compiler.source>17</maven.compiler.source>
-    <maven.compiler.target>17</maven.compiler.target>
+    <maven.compiler.target>${maven.compiler.source}</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 

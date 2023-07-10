@@ -14,6 +14,6 @@
   <artifactId>dfs-master</artifactId>
 
   <name>Distributed File System Master Node</name>
-  <description>Master node as part of the distributed file system</description>
+  <description>Master node as part of the distributed file storage</description>
 
 </project>
